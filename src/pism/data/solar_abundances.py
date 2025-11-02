@@ -1,7 +1,7 @@
 from .atomic_weights import atomic_weights
 
 
-class SolarAbundaces:
+class SolarAbundances:
     """Container for solar abundances with methods to convert between mass fraction and abundance per H"""
 
     bibliography = ["2009ARA&A..47..481A"]
