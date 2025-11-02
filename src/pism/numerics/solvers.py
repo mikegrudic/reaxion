@@ -80,7 +80,7 @@ def newton_rootsolve(
         init_val = guess, 100 * guess, 0
         X, _, num_iter = jax.lax.while_loop(iter_condition, X_new, init_val)
 
-        return X  # jnp.where(num_iter < max_iter, X, X * jnp.nan)
+        return X
 
     X = jax.vmap(solve)(guesses, params)
     return X
