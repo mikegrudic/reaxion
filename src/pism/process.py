@@ -212,7 +212,6 @@ class Process:
 
         func = sp.lambdify(unknowns + known_variables, list(network_tosolve.values()), modules="jax")
 
-        @jax.jit
         def f_numerical(X, *params):
             """JAX function to rootfind"""
             return jnp.array(func(*X, *params))
@@ -224,7 +223,6 @@ class Process:
             tolerance_vars += [sp.Symbol("T")]
         tolfunc = sp.lambdify(unknowns + known_variables, tolerance_vars, modules="jax")
 
-        @jax.jit
         def tolerance_func(X, *params):
             """Solution will terminate if the relative change in this quantity is < tol"""
             return jnp.array(tolfunc(*X, *params))
