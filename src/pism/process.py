@@ -252,9 +252,16 @@ class Process:
                 guesses[-1] *= known_quantities["n_Htot"]  # convert to density
         guesses = jnp.array(guesses).T
         params = jnp.array(list(known_quantities.values())).T
-        
+
         sol, num_iter = newton_rootsolve(
-            f_numerical, guesses, params, tolfunc=tolerance_func, rtol=tol, careful_steps=careful_steps, positive=True, return_num_iter=True
+            f_numerical,
+            guesses,
+            params,
+            tolfunc=tolerance_func,
+            rtol=tol,
+            careful_steps=careful_steps,
+            positive=True,
+            return_num_iter=True,
         )
 
         # get solution into dict form

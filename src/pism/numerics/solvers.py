@@ -2,7 +2,16 @@ import jax, jax.numpy as jnp
 
 
 def newton_rootsolve(
-    func, guesses, params=[], jacfunc=None, tolfunc=None, rtol=1e-6, max_iter=100, careful_steps=1, positive=False, return_num_iter=False
+    func,
+    guesses,
+    params=[],
+    jacfunc=None,
+    tolfunc=None,
+    rtol=1e-6,
+    max_iter=100,
+    careful_steps=1,
+    positive=False,
+    return_num_iter=False,
 ):
     """
     Solve the system f(X,p) = 0 for X, where both f and X can be vectors of arbitrary length and p is a set of fixed
