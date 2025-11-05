@@ -270,7 +270,7 @@ class Process:
         # now get the missing species that we eliminated - this needs to be generalized...
         nHtot = known_quantities["n_Htot"]
         sol["H+"] = nHtot - sol["H"]
-        sol["e-"] = sol["H+"]
+        sol["e-"] = np.copy(sol["H+"])
         if "Y" in known_quantities:
             Y = known_quantities["Y"]
             y = Y / (4 - 4 * Y)
