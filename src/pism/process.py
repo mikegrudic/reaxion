@@ -1,6 +1,5 @@
 """Implementation of base Process class with methods for managing and solving systems of equations"""
 
-from collections import defaultdict
 import sympy as sp
 import jax
 import jax.numpy as jnp
@@ -12,6 +11,7 @@ from .data import SolarAbundances
 from . import eos
 from astropy import units
 from time import time
+from .equation_system import EquationSystem
 
 
 class Process:
@@ -67,10 +67,10 @@ class Process:
         return self.__add__(other)
 
     def initialize_network(self):
-        self.network = defaultdict(int)  # this is a dict for which unknown keys are initialized to 0 by default
+        self.network = EquationSystem()  # this is a dict for which unknown keys are initialized to 0 by default
 
     def combine_networks(self, n1, n2):
-        combined_network = defaultdict(int)
+        combined_network = EquationSystem()
         combined_keys = set(tuple(n1.keys())).union(set(tuple(n2.keys())))  # gross?
         for k in combined_keys:
             combined_network[k] = n1[k] + n2[k]
