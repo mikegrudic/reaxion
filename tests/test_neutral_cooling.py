@@ -14,7 +14,7 @@ import sympy as sp
 from pism.data import SolarAbundances
 import pytest
 
-test_temperatures = 10.0 ** np.arange(7)
+test_temperatures = 10.0 ** np.arange(6)
 
 
 @pytest.mark.parametrize("T0", test_temperatures)

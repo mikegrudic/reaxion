@@ -230,7 +230,7 @@ class Process:
 
         def f_numerical(X, *params):
             """JAX function to rootfind"""
-            return jnp.array(func(*X, *params))
+            return 1e20 * jnp.array(func(*X, *params))
 
         # We also specify a function of the parameters to use for our stopping criterion:
         # converge electron and H abundance to desired tolerance.
@@ -253,15 +253,8 @@ class Process:
         guesses = jnp.array(guesses).T
         params = jnp.array(list(known_quantities.values())).T
 
-        sol, num_iter = newton_rootsolve(
-            f_numerical,
-            guesses,
-            params,
-            tolfunc=tolerance_func,
-            rtol=tol,
-            careful_steps=careful_steps,
-            positive=True,
-            return_num_iter=True,
+        sol = newton_rootsolve(
+            f_numerical, guesses, params, tolfunc=tolerance_func, rtol=tol, careful_steps=careful_steps, positive=True
         )
 
         # get solution into dict form
