@@ -1,6 +1,7 @@
 """Class specifying an N-body collisional process with generic methods"""
 
 from ..process import Process
+from ..symbols import n_
 import sympy as sp
 
 
@@ -41,14 +42,14 @@ class NBodyProcess(Process):
     def heat_rate_coefficient(self, value):
         """Ensures that the network is always updated when we update the rate coefficient"""
         self.__heat_rate_coefficient = value
-        self.heat = value * sp.prod([sp.Symbol("n_" + c) for c in self.colliding_species])
+        self.heat = value * sp.prod([n_(c) for c in self.colliding_species])
 
     @property
     def rate(self):
         """Returns the number of events per unit time and volume"""
         if self.rate_coefficient is None:
             return None
-        return self.rate_coefficient * sp.prod([sp.Symbol("n_" + c) for c in self.colliding_species])
+        return self.rate_coefficient * sp.prod([n_(c) for c in self.colliding_species])
 
     # @property
     # def heat(self):

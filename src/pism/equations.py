@@ -92,11 +92,8 @@ class EquationSystem(dict):
 
     def reduced_system(self, knowns, time_dependent=[]):
         subsystem = self.copy()
-
         subsystem.eulerify(time_dependent)
-
         subsystem.do_conservation_reductions(knowns, time_dependent)
-
         return subsystem
 
     def eulerify(self, time_dependent_vars):
@@ -110,24 +107,26 @@ class EquationSystem(dict):
 
     def do_conservation_reductions(self, knowns, time_dependent_vars):
         """Eliminate equations from the system using known conservation laws."""
-        substitutions = {}
         # charge neutrality
-        if not "e-" in time_dependent_vars:
-            substitutions[n_("e-")] = n_("H+") + n_("He+") + 2 * n_("He++")  # general: sum(n_species * ion charge)
+        if "e-" not in time_dependent_vars:
+            # print(self["H"])
+            self.subs(n_("e-"), n_("H+") + n_("He+") + 2 * n_("He++"))  # general: sum(n_species * ion charge)
+            print(self["H"])
+            #  exit()
             del self["e-"]
 
         if "n_Htot" in knowns:
             n_Htot = sp.Symbol("n_Htot")
             #  general: sum(n_(species containing H) / (number of H in species))  - n_("H_2") / 2 #
-            if not "H+" in time_dependent_vars:
-                substitutions[n_("H+")] = n_Htot - n_("H")
+            if "H+" not in time_dependent_vars:
+                self.subs(n_("H+"), n_Htot - n_("H"))
                 if "H+" in self:
                     del self["H+"]
 
-            if not "He++" in time_dependent_vars:
+            if "He++" not in time_dependent_vars:
                 Y = sp.Symbol("Y")
                 y = Y / (1 - Y) / 4
-                substitutions[n_("He++")] = n_Htot * y - sp.Symbol("n_He") - sp.Symbol("n_He+")
+                self.subs(n_("He++"), n_Htot * y - sp.Symbol("n_He") - sp.Symbol("n_He+"))
                 if "He++" in self:
                     del self["He++"]
 
@@ -135,16 +134,24 @@ class EquationSystem(dict):
             # x_Atot = SolarAbundances.x(A)
             # substitutions[highest ionization state of A] = n_Htot * x_Atot - sum(n_A(i))
             # do we have to write a chemical species class?
-        for _ in range(2):  # repeat to deal with ordering issue
-            for symbol, replacement in substitutions.items():
-                self.subs(symbol, replacement)
 
+    #            for symbol, replacement in substitutions.items():
+    #                self.subs(symbol, replacement)
+
+    @property
     def rhs(self):
         """Return as dict of rhs-lhs instead of equations"""
         return {k: e.rhs - e.lhs for k, e in self.items()}
 
+    @property
+    def ccode(self):
+        cse, cseval = sp.cse(self.rhs.values(), order="none")
+        return sp.ccode(cse, standard="c99"), sp.ccode(cseval, standard="c99")
+
     def solve(self, knowns, unknowns, time_dependent=[]):
-        subsystem = self.get_solve_subsystem(knowns, knowns, time_dependent)
+        subsystem = self.reduced_system(knowns, time_dependent)
+        if "T" in knowns:
+            del subsystem["T"]
 
     # @property
     # def steadystate(self, species=None):
