@@ -109,10 +109,7 @@ class EquationSystem(dict):
         """Eliminate equations from the system using known conservation laws."""
         # charge neutrality
         if "e-" not in time_dependent_vars:
-            # print(self["H"])
             self.subs(n_("e-"), n_("H+") + n_("He+") + 2 * n_("He++"))  # general: sum(n_species * ion charge)
-            print(self["H"])
-            #  exit()
             del self["e-"]
 
         if "n_Htot" in knowns:
@@ -134,9 +131,6 @@ class EquationSystem(dict):
             # x_Atot = SolarAbundances.x(A)
             # substitutions[highest ionization state of A] = n_Htot * x_Atot - sum(n_A(i))
             # do we have to write a chemical species class?
-
-    #            for symbol, replacement in substitutions.items():
-    #                self.subs(symbol, replacement)
 
     @property
     def rhs(self):
