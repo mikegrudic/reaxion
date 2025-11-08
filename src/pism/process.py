@@ -75,16 +75,19 @@ class Process:
         self.__heat = value
         self.network["heat"] = Equation(d_dt(n_("heat")), value)
 
-    def steadystate(
+    def solve(
         self,
         known_quantities,
         guess,
+        time_dependent=[],
         input_abundances=True,
         output_abundances=True,
         reduce_network=True,
+        dt=None,
+        model="default",
+        verbose=False,
         tol=1e-3,
         careful_steps=10,
-        dt=None,
     ):
         """
         Solves for equilibrium after substituting a set of known quantities, e.g. temperature, metallicity,
@@ -118,7 +121,16 @@ class Process:
         """
 
         return self.network.solve(
-            self, known_quantities, guess, input_abundances, output_abundances, reduce_network, tol, careful_steps, dt
+            known_quantities,
+            guess,
+            time_dependent=time_dependent,
+            input_abundances=input_abundances,
+            output_abundances=output_abundances,
+            reduce_network=reduce_network,
+            tol=tol,
+            careful_steps=careful_steps,
+            dt=dt,
+            verbose=verbose,
         )
         if "T" in known_quantities and dt is None:
             thermo = False  # do a chemistry solve with T fixed
