@@ -80,9 +80,6 @@ class Process:
         known_quantities,
         guess,
         time_dependent=[],
-        input_abundances=True,
-        output_abundances=True,
-        reduce_network=True,
         dt=None,
         model="default",
         verbose=False,
@@ -90,8 +87,7 @@ class Process:
         careful_steps=10,
     ):
         """
-        Solves for equilibrium after substituting a set of known quantities, e.g. temperature, metallicity,
-        etc.
+        Solves the equations for a set of desired quantities given a set of known quantities
 
         Parameters
         ----------
@@ -115,130 +111,16 @@ class Process:
 
         Returns
         -------
-        equilibrium_abundances: dict
-            Dict of species and their equilibrium abundances relative to H or raw number densities (depending on
-            value of normalize_to_H)
+        soldict: dict
+            Dict of solved quantities
         """
 
         return self.network.solve(
             known_quantities,
             guess,
             time_dependent=time_dependent,
-            input_abundances=input_abundances,
-            output_abundances=output_abundances,
-            reduce_network=reduce_network,
             tol=tol,
             careful_steps=careful_steps,
             dt=dt,
             verbose=verbose,
         )
-        if "T" in known_quantities and dt is None:
-            thermo = False  # do a chemistry solve with T fixed
-            if reduce_network:
-                network_tosolve = self.reduced_network
-            else:
-                network_tosolve = self.network
-        else:
-            thermo = True  # solve for equilibrium T as well
-            network_tosolve = self.get_thermochem_network(reduced=reduce_network)
-
-        self.do_solver_value_checks(known_quantities, guess)
-
-        num_params = len(known_quantities["n_Htot"])
-
-        # plug in sensible defaults for things
-        if "Y" not in known_quantities:
-            known_quantities["Y"] = np.repeat(SolarAbundances.get_mass_fraction("He"), num_params)
-        num_params = len(known_quantities)
-
-        if "u0" in known_quantities and dt is not None:
-            # transform thermal equilibrium eqn. into thermal evolution backward Euler system
-            net_heat = network_tosolve["T"]
-            network_tosolve["T"] = (
-                self.apply_network_reductions((eos.u - sp.Symbol("u0")) * eos.rho) - net_heat * dt.to(units.s).value
-            )
-            # optionally do this for all chemical species you want to evolve out of steady-state
-
-        # need to implement broadcasting between knowns and guesses...
-        # can supply just the species names, will convert to the number density symbol if necessary
-        unknowns = [sp.Symbol(f"n_{i}") for i in self.reduced_network]
-        if thermo:
-            unknowns.append("T")
-        if "u" in guess:
-            unknowns.append("u")
-            network_tosolve["u"] = self.apply_network_reductions(eos.u) - sp.Symbol("u")
-
-        known_variables = [sp.Symbol(k) if isinstance(k, str) else k for k in known_quantities]
-
-        ################### all unknowns and knowns are worked out now, numerics time ##################################
-        # with open("network.h", "w") as F:
-        # cse, cseval = sp.cse(list(network_tosolve.values()), order="none")
-        # F.write(sp.ccode(cse, standard="c99"))
-        # F.write(sp.ccode(cseval, standard="c99"))
-        func = sp.lambdify(unknowns + known_variables, list(network_tosolve.values()), modules="jax", cse=True)
-
-        def f_numerical(X, *params):
-            """JAX function to rootfind"""
-            return 1e20 * jnp.array(func(*X, *params))
-
-        # We also specify a function of the parameters to use for our stopping criterion:
-        # converge electron and H abundance to desired tolerance.
-        tolerance_vars = [self.apply_network_reductions(n_("e-")), n_("H")]
-        if thermo:
-            tolerance_vars += [sp.Symbol("T")]
-        if dt is not None:
-            tolerance_vars += [sp.Symbol("u"), net_heat]  # converge on the cooling rate
-        tolfunc = sp.lambdify(unknowns + known_variables, tolerance_vars, modules="jax", cse=True)
-
-        def tolerance_func(X, *params):
-            """Solution will terminate if the relative change in this quantity is < tol"""
-            return jnp.array(tolfunc(*X, *params))
-
-        guesses = []
-        for i in network_tosolve:
-            guesses.append(np.copy(guess[i]))
-            if input_abundances and i in self.network:
-                guesses[-1] *= known_quantities["n_Htot"]  # convert to density
-        guesses = jnp.array(guesses).T
-        params = jnp.array(list(known_quantities.values())).T
-
-        sol = newton_rootsolve(
-            f_numerical,
-            guesses,
-            params,
-            tolfunc=tolerance_func,
-            rtol=tol,
-            careful_steps=careful_steps,
-            nonnegative=True,
-        )
-
-        # get solution into dict form
-        sol = {species: np.array(sol[:, i]) for i, species in enumerate(network_tosolve)}
-
-        # now get the missing species that we eliminated - this needs to be generalized...
-        nHtot = known_quantities["n_Htot"]
-        sol["H+"] = (nHtot - sol["H"]).clip(0)
-        sol["e-"] = np.copy(sol["H+"])
-        if "Y" in known_quantities:
-            Y = known_quantities["Y"]
-            y = Y / (4 - 4 * Y)
-            sol["He++"] = (y * nHtot - sol["He"] - sol["He+"]).clip(0)
-            sol["e-"] += 2 * sol["He++"] + sol["He+"]
-
-        if output_abundances:
-            for species, n in sol.items():
-                if species != "T":
-                    sol[species] = n / nHtot
-        return sol
-
-    def do_solver_value_checks(self, known_quantities, guess):
-        if not isinstance(known_quantities, dict):
-            raise ValueError("known_quantities argument to chemical_equilibrium must be a dictionary.")
-        lengths = [len(k) for k in known_quantities.values()]
-
-        if guess is not None:
-            if not isinstance(guess, dict):
-                raise ValueError("If supplied, guess argument to chemical_equilibrium must be a dictionary.")
-            lengths += [len(g) for g in guess.values()]
-        if not all([l == lengths[0] for l in lengths]):
-            raise ValueError("All known quantities and guesses must be arrays of equal length.")

@@ -116,29 +116,33 @@ class EquationSystem(dict):
 
     def do_conservation_reductions(self, knowns, time_dependent_vars):
         """Eliminate equations from the system using known conservation laws."""
+        self.substitutions = []
+
+        # since we have n_Htot let's convert all other n's to x's
+        for s in self.symbols:
+            if "n_" in str(s) and "Htot" not in str(s):
+                species = str(s).split("_")[1]
+                self.substitutions.append((s, n_Htot * x_(species)))
+
         # charge neutrality
         if "e-" not in time_dependent_vars:
-            self.subs(n_("e-"), n_("H+") + n_("He+") + 2 * n_("He++"))  # general: sum(n_species * ion charge)
+            self.substitutions.append((x_("e-"), x_("H+") + x_("He+") + 2 * x_("He++")))
             del self["e-"]
 
-        if "n_Htot" in knowns:
-            #  general: sum(n_(species containing H) / (number of H in species))  - n_("H_2") / 2 #
-            if "H+" not in time_dependent_vars:
-                self.subs(n_("H+"), n_Htot - n_("H"))
-                if "H+" in self:
-                    del self["H+"]
+        #  general: sum(n_(species containing H) / (number of H in species))  - n_("H_2") / 2 #
+        if "H+" not in time_dependent_vars:
+            self.substitutions.append((x_("H+"), 1 - x_("H")))
+            if "H+" in self:
+                del self["H+"]
 
-            if "He++" not in time_dependent_vars:
-                y = sp.Symbol("y")
-                self.subs(n_("He++"), n_Htot * y - n_("He") - n_("He+"))
-                if "He++" in self:
-                    del self["He++"]
+        if "He++" not in time_dependent_vars:
+            y = sp.Symbol("y")
+            self.substitutions.append((x_("He++"), y - x_("He") - x_("He+")))
+            if "He++" in self:
+                del self["He++"]
 
-            # since we have n_Htot let's convert all other n's to x's
-            for s in self.symbols:
-                if "n_" in str(s) and "Htot" not in str(s):
-                    species = str(s).split("_")[1]
-                    self.subs(s, n_Htot * x_(species))
+        for expr, sub in self.substitutions:
+            self.subs(expr, sub)
 
             # general: substitute highest ionization state with n_Htot * x_element - sum of lower ionization states
 
@@ -162,15 +166,43 @@ class EquationSystem(dict):
         knowns,
         guesses,
         time_dependent=[],
-        input_abundances=True,
-        output_abundances=True,
-        reduce_network=True,
         dt=None,
         model="default",
         verbose=False,
         tol=1e-3,
         careful_steps=10,
     ):
+        """
+        Solves for equilibrium after substituting a set of known quantities, e.g. temperature, metallicity,
+        etc.
+
+        Parameters
+        ----------
+        known_quantities: dict
+            Dict of symbolic quantities and their values that will be plugged into the network solve as known quantities.
+            Can be arrays if you want to substitute multiple values. If T is included here, we solve for chemical
+            equilibrium. If T is not included, solve for thermochemical equilibrium.
+        guess: dict, optional
+            Dict of symbolic quantities and their values that will be plugged into the network solve as guesses for the
+            unknown quantities. Can be arrays if you want to substitute multiple values. Will default to trying sensible
+            guesses for recognized quantities.
+        normalize_to_H: bool, optional
+            Whether to return abundances normalized by the number density of H nucleons (default: True)
+        reduce_network: bool, optional
+            Whether to solve the reduced version of the network substituting conservation laws (default: True)
+        tol: float, optional
+            Desired relative error in chemical abundances (default: 1e-3)
+        careful_steps: int, optional
+            Number of careful initial steps in the Newton solve before full step size is used - try increasing this if
+            your solve has trouble converging.
+
+        Returns
+        -------
+        equilibrium_abundances: dict
+            Dict of species and their equilibrium abundances relative to H or raw number densities (depending on
+            value of normalize_to_H)
+        """
+
         def printv(*a, **k):
             """Print only if locally verbose=True"""
             if verbose:
@@ -227,7 +259,7 @@ class EquationSystem(dict):
         lambda_args = [list(guessvals.keys()), list(paramvals.keys())]
         func = sp.lambdify(lambda_args, subsystem.rhs_scaled, modules="jax", cse=True)
 
-        tolerance_vars = [x_("H"), x_("He+")]
+        tolerance_vars = [x_("H"), x_("He+") + x_("He")]
         if "T" in guesses:
             tolerance_vars += [sp.Symbol("T")]
         if dt is not None:
@@ -242,171 +274,34 @@ class EquationSystem(dict):
             """Solution will terminate if the relative change in this quantity is < tol"""
             return jnp.array(tolfunc(X, params))
 
-        guess_in = jnp.array([g for g in guessvals.values()]).T
-        params_in = jnp.array([p for p in paramvals.values()]).T
+        # option to bail here and just provide the RHS
+
         sol = newton_rootsolve(
             f_numerical,
-            guess_in,
-            params_in,
+            jnp.array([g for g in guessvals.values()]).T,
+            jnp.array([p for p in paramvals.values()]).T,
             tolfunc=tolerance_func,
             rtol=tol,
             careful_steps=careful_steps,
             nonnegative=True,
         )
-        return sol
 
-    # print(sol)
+        # now repack the solution
+        soldict = {}
+        for i, g in enumerate(guessvals):
+            soldict[g] = sol[:, i]
 
+        # do a reverse-pass on the substitutions we made to get all quantities
+        values_to_subs = soldict | paramvals
+        print(values_to_subs)
+        for expr, sub in reversed(subsystem.substitutions):
+            if expr in soldict:
+                continue
+            if "n_" in str(expr):
+                continue
+            soldict[expr] = sp.lambdify(list(sub.free_symbols), sub)(
+                *[values_to_subs[s] for s in list(sub.free_symbols)]
+            )
+            values_to_subs |= soldict
 
-#        return func, guessvals,
-#       print(func(guessvals.values(), paramvals.values()))
-
-# get into ordered array form
-
-
-#        guess_vals = guesses[keys[u]
-
-#       print(func(guess_vals, param_vals))
-
-# def f_numerical(X, *params):
-#     """Function to rootfind - these are the rates"""
-#     return 1e20 * jnp.array(func(*X, *params))
-
-# We also specify a function of the parameters to use for our stopping criterion:
-# converge electron and H abundance to desired tolerance.
-# tolerance_vars = [self.apply_network_reductions(n_("e-")), n_("H")]
-# if thermo:
-#     tolerance_vars += [sp.Symbol("T")]
-# if dt is not None:
-#     tolerance_vars += [sp.Symbol("u"), net_heat]  # converge on the cooling rate
-# tolfunc = sp.lambdify(unknowns + known_variables, tolerance_vars, modules="jax", cse=True)
-
-# def tolerance_func(X, *params):
-#     """Solution will terminate if the relative change in this quantity is < tol"""
-#     return jnp.array(tolfunc(*X, *params))
-
-#        indices = # establish indexing for the different equations and
-
-
-#        f_numerical = subsystem.rhs
-
-# def broadcast_arraydicts(self, dict1, dict2):
-#     d1,d2 = dict1.copy(), dict2.copy()
-
-#     lengths1 = {np.array(a).shape for k, a in dict1.items()}
-#     lengths2 = {len(a) for k, a in dict2.items()}
-#     # case 1: all the same length,
-#     if le
-
-# @property
-# def steadystate(self, species=None):
-#     """Returns the system with all time derivatives set to 0"""
-#     return {k: Equation(0, e.rhs) for k, e in self.items()}  # steadystate_equations
-
-# @property
-# def network_ions(self):
-#     """Returns the list of ions involved in a process"""
-#     return [s for s in self.network if is_an_ion(s)]
-
-# def apply_network_reductions(self, expr):
-#     """Applies the replacements given by network_reduction_replacements to a symbolic expression"""
-#     out = expr
-#     for _ in range(2):  # 2 passes to avoid ordering issues
-#         for n, r in self.network_reduction_replacements.items():
-#             out = out.subs(n, r)
-#     return out
-
-# @property
-# def reduced_network(self):
-#     """
-#     Returns the chemistry network after substituting known conservation laws:
-
-#     n_atom = sum(n_{species containing atom} * number of atoms in species)
-#     n_e- = sum(ion charge * n_ion) - want to keep n_e- in the explicit updates, so eliminate the highest ions?
-
-#     This reduces the network of N rate equations to N - (num_atoms + 1).
-#     """
-
-#     replacements = self.network_reduction_replacements
-
-#     reduced_network = {}
-#     for s, rhs in self.network.items():
-#         if n_(s) in replacements:
-#             continue
-#         else:
-#             rhs = self.apply_network_reductions(rhs)
-#         reduced_network[s] = rhs
-#     return reduced_network
-
-# def get_thermochem_network(self, reduced=True):
-#     """Returns the network including all chemical processes plus the gas heating-cooling equation"""
-#     if reduced:
-#         network = self.reduced_network
-#     else:
-#         network = self.network
-#     return network | {"T": self.apply_network_reductions(self.heat)}  # combine the dicts
-
-
-# def eulerify(symbol):
-
-
-# @property
-# def network_reduction_replacements(self):
-#     """Replacements for reducing the chemistry network with conservation laws"""
-#     Y = sp.Symbol("Y")  # general: mass fractions of different atoms other than H. n_i,tot = n_i + sum(n_ions of i)
-#     nHtot = sp.Symbol("n_Htot")  # basically always want this
-
-#     substitutions = {
-#         n_("e-"): n_("H+") + n_("He+") + 2 * n_("He++"),
-#         # n_("He+"): n_("e-") - n_("H+") - 2 * n_("He++"),
-#         n_("H+"): nHtot - n_("H"),
-#         n_("He++"): Y / (4 - 4 * Y) * nHtot - sp.Symbol("n_He") - sp.Symbol("n_He+"),
-#     }
-#     return substitutions
-
-# def apply_network_reductions(self, expr):
-#     """Applies the replacements given by network_reduction_replacements to a symbolic expression"""
-#     out = expr
-#     for _ in range(2):  # 2 passes to avoid ordering issues
-#         for n, r in self.network_reduction_replacements.items():
-#             out = out.subs(n, r)
-#     return out
-
-# @property
-# def reduced_network(self):
-#     """
-#     Returns the chemistry network after substituting known conservation laws:
-
-#     n_atom = sum(n_{species containing atom} * number of atoms in species)
-#     n_e- = sum(ion charge * n_ion) - want to keep n_e- in the explicit updates, so eliminate the highest ions?
-
-#     This reduces the network of N rate equations to N - (num_atoms + 1).
-#     """
-
-#     replacements = self.network_reduction_replacements
-
-#     reduced_network = {}
-#     for s, rhs in self.network.items():
-#         if n_(s) in replacements:
-#             continue
-#         else:
-#             rhs = self.apply_network_reductions(rhs)
-#         reduced_network[s] = rhs
-#     return reduced_network
-
-# def get_thermochem_network(self, reduced=True):
-#     """Returns the network including all chemical processes plus the gas heating-cooling equation"""
-#     if reduced:
-#         network = self.reduced_network
-#     else:
-#         network = self.network
-#     return network | {"T": self.apply_network_reductions(self.heat)}  # combine the dicts
-
-
-#    def backward_eulerfy
-
-# def jacobian
-
-# def numerify
-
-# def numerify_jacobian
+        return soldict
