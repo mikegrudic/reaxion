@@ -4,12 +4,10 @@ import sympy as sp
 from .symbols import d_dt, n_, x_, dt, t, BDF, n_Htot, T, internal_energy
 from .data import SolarAbundances
 from jax import numpy as jnp
-from jax import config
-
-# config.update("jax_debug_nans", True)
-jax.config.update("jax_enable_x64", True)
 import numpy as np
 from .numerics import newton_rootsolve
+# import jax
+# jax.config.update("jax_enable_x64", True)
 
 
 class Equation(sp.core.relational.Equality):
@@ -228,7 +226,6 @@ class EquationSystem(dict):
             undetermined_symbols = symbols.difference(set(sp.Symbol(g) for g in guesses))
             printv(f"Undetermined symbols: {undetermined_symbols}")
             for s in undetermined_symbols:
-                print(s)
                 # if we have a prescription for this quantity, plug it in here. This should eventually be specified at the model level.
                 if str(s) in prescriptions:
                     # case 1: we have given a value, which we should add to the list of knowns
