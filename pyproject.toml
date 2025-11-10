@@ -3,8 +3,8 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pism"
-version = "0.0.1"
+name = "reaxion"
+version = "0.1.0"
 authors = [
   { name="Mike Grudić", email="mike.grudic@gmail.com" },
 ]
@@ -23,5 +23,5 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
 [project.urls]
-Homepage = "https://github.com/mikegrudic/pism"
-Issues = "https://github.com/mikegrudic/pism/issues"
+Homepage = "https://github.com/mikegrudic/reaxion"
+Issues = "https://github.com/mikegrudic/reaxion/issues"

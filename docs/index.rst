@@ -1,7 +1,7 @@
-Welcome to pism's documentation!
+Welcome to reaxion's documentation!
 ===================================
 
-`pism` is a flexible, object-oriented implementation for systems of ISM microphysics and chemistry equations, with numerical solvers implemented in JAX, and interfaces for embedding the equations and their Jacobians into other codes.
+`reaxion` is a flexible, object-oriented implementation for systems of ISM microphysics and chemistry equations, with numerical solvers implemented in JAX, and interfaces for embedding the equations and their Jacobians into other codes.
 
 .. toctree::
    :maxdepth: 2
