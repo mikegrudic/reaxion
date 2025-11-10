@@ -158,7 +158,7 @@ The ``solve`` method calls the JAX solver and computes the solution:
 
 
 
-.. image:: CIE_files/CIE_15_1.png
+.. image:: _images/CIE_15_1.png
    :width: 761px
    :height: 729px
 
