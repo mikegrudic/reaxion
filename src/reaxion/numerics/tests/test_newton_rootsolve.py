@@ -1,7 +1,7 @@
 import numpy as np
 import jax, jax.numpy as jnp
-import pism
-from pism.numerics.solvers import newton_rootsolve
+import reaxion
+from reaxion.numerics.solvers import newton_rootsolve
 
 
 def test_newton_rootsolve(N=10**5):

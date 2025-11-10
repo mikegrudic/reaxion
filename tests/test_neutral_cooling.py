@@ -1,8 +1,14 @@
-from pism.processes import FreeFreeEmission, LineCoolingSimple, CollisionalIonization, GasPhaseRecombination, Ionization
+from reaxion.processes import (
+    FreeFreeEmission,
+    LineCoolingSimple,
+    CollisionalIonization,
+    GasPhaseRecombination,
+    Ionization,
+)
 import numpy as np
 from matplotlib import pyplot as plt
 import sympy as sp
-from pism.data import SolarAbundances
+from reaxion.data import SolarAbundances
 import pytest
 import matplotlib
 

@@ -1,3 +1,24 @@
+Metadata-Version: 2.4
+Name: reaxion
+Version: 0.1.0
+Summary: object-oriented ISM processes
+Author-email: Mike Grudić <mike.grudic@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/mikegrudic/reaxion
+Project-URL: Issues, https://github.com/mikegrudic/reaxion/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: jax
+Requires-Dist: sympy
+Requires-Dist: numpy
+Requires-Dist: sphinx_rtd_theme
+Requires-Dist: astropy
+Requires-Dist: matplotlib
+Dynamic: license-file
+
 # reaxion
 
 [![Python package](https://github.com/mikegrudic/reaxion/actions/workflows/test.yml/badge.svg)](https://github.com/mikegrudic/reaxion/actions/workflows/test.yml)

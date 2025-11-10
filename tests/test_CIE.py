@@ -1,4 +1,4 @@
-from pism.processes import CollisionalIonization, GasPhaseRecombination
+from reaxion.processes import CollisionalIonization, GasPhaseRecombination
 import numpy as np
 from matplotlib import pyplot as plt
 
