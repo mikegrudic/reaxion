@@ -131,7 +131,6 @@ class EquationSystem(dict):
         guesses,
         time_dependent=[],
         dt=None,
-        model="default",
         verbose=False,
         tol=1e-3,
         careful_steps=10,
