@@ -116,3 +116,11 @@ class Process:
             dt=dt,
             verbose=verbose,
         )
+
+    def solver_functions(self, solve_vars, time_dependent=[], return_jac=False, return_dict=False):
+        """Returns the RHS of the system to solve and its Jacobian, applying simplifications"""
+        return self.network.solver_functions(solve_vars, time_dependent, return_jac, return_dict)
+
+    def generate_code(self, solve_vars, time_dependent=[], language="c", jac=True, cse=True):
+        """Generates numerical code that implements the system RHS and/or Jacobian in the specified language."""
+        return self.network.generate_code(solve_vars, time_dependent, language, jac, cse)
