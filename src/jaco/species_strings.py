@@ -56,7 +56,6 @@ def species_charge(species: str) -> int:
 def is_an_ion(species: str) -> bool:
     return species_charge(species) != 0 and species != "e-"
 
-def species_mass
 
 def base_species(species: str) -> str:
     """Removes the charge suffix from a species"""
@@ -144,6 +143,7 @@ def species_mass(species: str) -> float:
     """
     # TODO: IMPLEMENT ME
     return 0
+
 
 #     # proper way to do this: write function that decomposes a general species into nuclei + electron
 #     if species in atomic_weights:  # atom
