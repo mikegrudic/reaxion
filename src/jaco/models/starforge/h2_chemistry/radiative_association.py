@@ -29,7 +29,7 @@ def radiative_association(species):
             raise NotImplementedError(f"Radiative association rate not implemented for species {species}.")
 
     return ChemicalReaction(
-        f"{species} + e- -> " + species + "-" + f" + photon_assoc,{species})",
+        f"{species} + e- -> " + species + "-" + f" + photon_assoc,{species}",
         rate_coefficient=k,
         name=f"Radiative association of {species} with e-",
         bibliography=bib,
