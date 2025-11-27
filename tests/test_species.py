@@ -4,13 +4,26 @@ from jaco.species_strings import species_components, charge_suffix, species_char
 from jaco.data.atoms import atomic_weights
 import pytest
 
-test_species = ["e-", "C_6H_12O_6", "C_6 H_12 O_63+", "C_6H_12O_63+", "H_2", "H_2+", "H2", "H2+H-", "HCO+"]
+test_species = [
+    "e-",
+    "C_6H_12O_6",
+    "C_6 H_12 O_63+",
+    "C_6 H_12 O_6^3+",
+    "C_6H_12O_63+",
+    "H_2",
+    "H_2+",
+    "H2",
+    "H2+H-",
+    "HCO+",
+    "He++",
+    "He2+",
+]
 
 
 @pytest.mark.parametrize("species", test_species)
 def test_species_components(species):
     # components = species_components(species)
-    # charge = species_charge(species)
+    charge = species_charge(species)
     # suffix = charge_suffix(species)
     # recombined = recombine(species)
     # ionized = ionize(species)
@@ -19,13 +32,28 @@ def test_species_components(species):
     match species:
         case "e-":
             assert stripped == "e-"
+            assert charge == -1
         case "C_6H_12O_6":
             assert stripped == "C6H12O6"
+            assert charge == 0
         case "C_6 H_12 O_63+" | "C_6H_12O_63+":
             assert stripped == "C6H12O63+"
+            assert charge == 1
+        case "C_6 H_12 O_6^3+":
+            assert stripped == "C6H12O6^3+"
+            assert charge == 3
         case "H_2" | "H2":
             assert stripped == "H2"
+            assert charge == 0
         case "H-":
             assert stripped == "H-"
+            assert charge == -1
         case "HCO+":
             assert stripped == "HCO+"
+            assert charge == 1
+        case "He++":  # HeIII
+            assert stripped == "He++"
+            assert charge == 2
+        case "He2+":  # this is intended to denote the dihelium ion
+            assert stripped == "He2+"
+            assert charge == 1

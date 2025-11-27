@@ -31,23 +31,26 @@ def strip(species: str) -> str:
 
 def species_charge(species: str) -> int:
     """Returns the charge number of a species from its name"""
+    match species[-1]:
+        case "-":
+            sign = -1
+        case "+":
+            sign = 1
+
     if species[-1] not in ("-", "+"):
         return 0
-    if "++" in species:
+    elif "++" in species:
         return 2
     elif "--" in species:
         return -2
-
-    base = base_species(species)
-    suffix = species.split(base)[-1]
-    if suffix == "+":
-        return 1
-    if suffix == "-":
-        return -1
-    elif "+" in suffix:
-        return int(suffix.rstrip("+"))
+    elif species[-2] not in digits:
+        return sign
+    elif "^" in species:  # we have a digit possibly specifying the charge, check for a ^
+        # get what comes between the ^ and the sign
+        charge = int(species.split("^")[-1].split("+")[0].split("-")[0])
+        return sign * charge
     else:
-        return -int(suffix.rstrip("-"))
+        return sign
 
 
 def is_an_ion(species: str) -> bool:
@@ -111,7 +114,7 @@ def species_components(species: str) -> dict:
 
     components = {}
     charge = species_charge(species)
-    formula = base_species(species)  # take off charge suffix
+    formula = base_species(strip(species))  # take off charge suffix
     formula = "".join(formula.split())  # remove whitespace
 
     elements = []
