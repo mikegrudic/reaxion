@@ -1,14 +1,15 @@
 """Implementation of EquationSystem for representing, manipulating, and constructing systems of conservation laws"""
 
 import sympy as sp
-from .symbols import d_dt, n_, x_, t, BDF, n_Htot, internal_energy
+from .symbols import d_dt, n_, x_, t, BDF, n_Htot, internal_energy  # NOTE: must make internal_energy network-specific
+from .eos import EOS
 from .data import SolarAbundances
 from jax import numpy as jnp
 import numpy as np
 from .numerics import newton_rootsolve
 from astropy import units
 from .equation import Equation
-from sympy.codegen.ast import Assignment
+from sympy.codegen.ast import Assignment, Comment
 
 
 class EquationSystem(dict):
@@ -74,6 +75,7 @@ class EquationSystem(dict):
                 self[q] = Equation(BDF(q), self[q].rhs)
             else:
                 self[q] = Equation(0, self[q].rhs)
+
         if "T" in time_dependent_vars:  # special behaviour
             self["heat"] = Equation(BDF("T"), self["heat"].rhs)
             if "u" not in self:
@@ -85,10 +87,10 @@ class EquationSystem(dict):
 
         # since we have n_Htot let's convert all other n's to x's
         for s in self.symbols:
-            if "n_" in str(s) and "Htot" not in str(s):
-                species = str(s).split("_")[1]
-                self.substitutions.append((s, n_Htot * x_(species)))
+            if str(s)[:2] == "n_" and "Htot" not in str(s):
+                self.substitutions.append((s, n_Htot * sp.Symbol("x_" + str(s)[2:])))
 
+        # NOTE: all of this makes assumptions about what's in the network! Need to analyze the symbols
         # charge neutrality
         if "e-" not in time_dependent_vars:
             self.substitutions.append((x_("e-"), x_("H+") + x_("He+") + 2 * x_("He++")))
@@ -120,6 +122,16 @@ class EquationSystem(dict):
     def rhs_scaled(self):
         """Returns a scaled version of the the RHS pulling out the usual factors affecting collision rates"""
         return [r for r in self.rhs.values()]  # / (T**0.5 * n_Htot * n_Htot * 1e-12)
+
+    @property
+    def eos(self):
+        return EOS(self.chemical_species)
+
+    @property
+    def chemical_species(self):
+        """Returns a tuple of all chemical species detected within the network"""
+        # TODO: implement
+        pass
 
     def solve(
         self,
@@ -236,12 +248,6 @@ class EquationSystem(dict):
             """Solution will terminate if the relative change in this quantity is < tol"""
             return jnp.array(tolfunc(X, params))
 
-        # option to bail here and just provide the RHS
-
-        # jacfunc = sp.lambdify(
-        #     lambda_args, [[sp.diff(a, g) for g in guessvals] for a in subsystem.rhs_scaled]
-        # )  # , modules="jax", cse=True
-
         sol, num_iter = newton_rootsolve(
             f_numerical,
             jnp.array([g for g in guessvals.values()]).T,
@@ -258,6 +264,9 @@ class EquationSystem(dict):
         return soldict
 
     def package_solution(self, sol, guessvals, guesses, paramvals, subsystem, symbolic_keys):
+        """Takes the output of newton_rootsolve and packages it into a dict containing the system solution for all variables,
+        including substitutions for eliminated variables.
+        """
         # now repack the solution
         soldict = {}
         for i, g in enumerate(guessvals):
@@ -293,7 +302,7 @@ class EquationSystem(dict):
 
         solve_vars = list(solve_vars)
         if "u" in solve_vars or "T" in time_dependent:
-            self["u"] = Equation(0, internal_energy - sp.Symbol("u"))
+            self["u"] = Equation(0, self.internal_energy - sp.Symbol("u"))
             solve_vars.append("u")
 
         knowns = self.symbols.difference(solve_vars)
@@ -326,9 +335,9 @@ class EquationSystem(dict):
         else:
             return list(rhs.values()), {s: i for i, s in enumerate(rhs)}
 
-    def generate_code(self, solve_vars, time_dependent=[], language="Fortran", jac=True, cse=True, sanitize=True):
+    def generate_code(self, solve_vars, time_dependent=[], language="Fortran", jac=True, do_cse=True):
         """Generates numerical code that implements the system RHS and/or Jacobian in the specified language."""
-        func, jac, indices = self.solver_functions(solve_vars, time_dependent, return_jac=jac)
+        func, jac, indices = self.sanitized.solver_functions(solve_vars, time_dependent, return_jac=jac)
 
         def printer(x, language="c"):
             match language.lower():
@@ -340,22 +349,26 @@ class EquationSystem(dict):
                     return sp.pycode(x)
                 case "c++":
                     return sp.cxxcode(x, standard="c++11")
+                case "julia":
+                    return sp.julia_code(x)
 
         codeblocks = []
 
-        header = "# Computes the RHS function "
+        header = "Computes the RHS function "
         if jac:
             header += "and Jacobian "
         header += f"to solve for {list(indices.keys())}\n\n"
 
-        header += "# INDEX CONVENTION: " + " ".join(f"({i}: {s})" for s, i in indices.items())
+        header += "INDEX CONVENTION: " + " ".join(f"({i}: {s})" for s, i in indices.items())
 
+        header = printer(Comment(header), language)
         codeblocks.append(header)
 
-        if cse:
+        if do_cse:
             cse, (func, jac) = sp.cse((sp.Matrix(func), sp.Matrix(jac)))
             block = []
             for expr in cse:
+                print(expr)
                 block.append(printer(Assignment(*expr), language))
             codeblocks.append(" \n".join(block))
 
@@ -367,14 +380,18 @@ class EquationSystem(dict):
             codeblocks.append(printer(Assignment(jac_result, jac), language))
 
         code = "\n\n".join(codeblocks)
-        if sanitize:
-            sanitized_code = ""
-            replacements = {"+": "plus"}
-            for i, char in enumerate(code):
-                if char in replacements:
-                    if code[i - 1].split():  # if preceding character is not whitespace
-                        sanitized_code += replacements[char]
-                        continue
-                sanitized_code += char
-            code = sanitized_code
         return code
+
+    @property
+    def sanitized(self):
+        """Returns a version of the system with variables sanitized of characters that will cause syntax issues"""
+        replacements = {"+": "plus", "-": "minus"}
+        sanitized = self.copy()
+        symbols = sanitized.symbols
+        for s in symbols:
+            for r in replacements:
+                if r in str(s):
+                    print(r, s)
+                    sanitized.subs(s, sp.Symbol(str(s).replace(r, replacements[r])))
+
+        return sanitized
