@@ -340,6 +340,8 @@ class EquationSystem(dict):
                     return sp.pycode(x)
                 case "c++":
                     return sp.cxxcode(x, standard="c++11")
+                case "julia":
+                    return sp.julia_code(x)
 
         codeblocks = []
 
