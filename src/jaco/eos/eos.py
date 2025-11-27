@@ -5,7 +5,7 @@ in the network.
 from ..data.atoms import atomic_weights
 from astropy.constants import k_B, m_p, m_e
 from astropy import units as u
-from ..species_strings import species_charge, base_species as neutralize
+from ..species_strings import species_charge, base_species as neutralize, species_mass
 import sympy as sp
 
 
