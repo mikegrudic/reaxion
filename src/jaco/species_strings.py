@@ -13,9 +13,11 @@ is C3+ (C_3)+ or C^{3+}?
 """
 
 from string import digits
-from .data.atoms import atoms, atomic_weights
+from itertools import count
+from .data.atoms import atoms, atomic_weights, atomic_numbers
 from astropy.constants import k_B, m_p, m_e
 from astropy import units as u
+import functools
 
 boltzmann_cgs = k_B.to(u.erg / u.K).value
 protonmass_cgs = m_p.to(u.g).value
@@ -106,26 +108,41 @@ def add_electron(species: str) -> str:
     return base_species(species) + charge_suffix(charge - 1)
 
 
-def species_components(species: str) -> dict:
-    """Returns a dict of components (nuclei, electrons) found in a species whose values are the number of that species
+def species_counts(species: str) -> dict:
+    """Returns a dict of components (nuclei, electrons) found in a species whose values are the count of that species
     found in it"""
 
     if species == "e-":  # special behaviour
         return {"e-": 1}
 
-    components = {}
-    charge = species_charge(species)
+    counts = {}
     formula = base_species(strip(species))  # take off charge suffix
     formula = "".join(formula.split())  # remove whitespace
 
-    elements = []
-    # scan through looking for elements, adding up the numbers that follow. try 2-letter elements first
-    for length in (2, 1):
-        if formula[:length] in atoms:
-            elements.append(formula[:2])
-            formula = formula[length:]
+    # scan through looking for elements, adding up the numbers that follow.
+    while formula:
+        for num_char in (2, 1, 0):  # find an atomic symbol, starting with the 2-character ones
+            if len(formula) < num_char:
+                continue
+            if formula[:num_char] in atoms:
+                atom = formula[:num_char]
+                break
+        if num_char == 0:
+            raise ValueError(f"Could not parse atomic symbols from {species}.")
+        formula = formula[num_char:]
+        num = 1
+        i = 0
+        while formula[: i + 1].isnumeric() and i < len(formula):
+            num = int(formula[: i + 1])
+            i += 1
+        formula = formula[i:]
+        counts[atom] = num
 
-    return components
+    charge = species_charge(species)
+    num_protons = sum([atomic_numbers[s] * counts[s] for s in counts])
+    num_electrons = num_protons - charge
+    counts["e-"] = num_electrons
+    return counts
 
 
 def species_mass(species: str) -> float:
@@ -142,16 +159,12 @@ def species_mass(species: str) -> float:
     mass: float
         mass of species in g
     """
-    # TODO: IMPLEMENT ME
-    if species == "e-":
-        return m_e
-
-    return 0
-
-
-#     # proper way to do this: write function that decomposes a general species into nuclei + electron
-#     if species in atomic_weights:  # atom
-#         return protonmass_cgs * atomic_weights[species]
-#     elif neutralize(species) in atomic_weights:  # atomic ion
-#         return protonmass_cgs * atomic_weights[neutralize(species)] - electronmass_cgs * species_charge
-#     elif "H_2" in
+    mass = 0
+    for s, num in species_counts(species).items():
+        if s == "e-":
+            mass += num * electronmass_cgs
+        elif s in atomic_weights:
+            mass += num * atomic_weights[s] * (protonmass_cgs + electronmass_cgs)
+        else:
+            raise ValueError(f"I don't know the mass of species component {s}")
+    return mass
