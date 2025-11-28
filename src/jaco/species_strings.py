@@ -59,11 +59,12 @@ def is_an_ion(species: str) -> bool:
 
 def base_species(species: str) -> str:
     """Removes the charge suffix from a species"""
-    # FIXME: WILL FAIL FOR GENERAL CHEMICAL FORMULAE
     if species == "e-":
         return "e-"
-    base = species.rstrip(digits + "-+")
-    return base
+    if "^" in species:
+        return species.split("^")[0]
+    else:
+        return species.replace("-", "").replace("+", "")
 
 
 def neutralize(species: str) -> str:
@@ -88,18 +89,18 @@ def charge_suffix(charge: int) -> str:
             return "--"
         case _:
             if charge < -2:
-                return str(abs(charge)) + "-"
+                return "^" + str(abs(charge)) + "-"
             else:
-                return str(abs(charge)) + "+"
+                return "^" + str(abs(charge)) + "+"
 
 
-def ionize(species: str) -> str:
+def remove_electron(species: str) -> str:
     """Returns the symbol of the species produced by removing an electron from the input species"""
     charge = species_charge(species)
     return base_species(species) + charge_suffix(charge + 1)
 
 
-def recombine(species: str) -> str:
+def add_electron(species: str) -> str:
     """Returns the symbol of the species produced by adding an electron to the input species"""
     charge = species_charge(species)
     return base_species(species) + charge_suffix(charge - 1)
@@ -142,6 +143,9 @@ def species_mass(species: str) -> float:
         mass of species in g
     """
     # TODO: IMPLEMENT ME
+    if species == "e-":
+        return m_e
+
     return 0
 
 
