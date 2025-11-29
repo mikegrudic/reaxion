@@ -2,16 +2,7 @@
 
 import sympy as sp
 from .species_strings import species_mass
-from .symbols import (
-    d_dt,
-    dt,
-    n_,
-    x_,
-    t,
-    BDF,
-    n_Htot,
-    internal_energy,
-)  # NOTE: must make internal_energy network-specific
+from .symbols import d_dt, dt, n_, x_, t, BDF, n_Htot
 from .eos import EOS
 from .data import SolarAbundances
 from jax import numpy as jnp
@@ -389,7 +380,6 @@ class EquationSystem(dict):
             cse, (func, jac) = sp.cse((sp.Matrix(func), sp.Matrix(jac)))
             block = []
             for expr in cse:
-                print(expr)
                 block.append(printer(Assignment(*expr), language))
             codeblocks.append(" \n".join(block))
 
@@ -412,7 +402,6 @@ class EquationSystem(dict):
         for s in symbols:
             for r in replacements:
                 if r in str(s):
-                    print(r, s)
                     sanitized.subs(s, sp.Symbol(str(s).replace(r, replacements[r])))
 
         return sanitized
