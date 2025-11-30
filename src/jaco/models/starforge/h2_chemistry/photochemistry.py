@@ -16,7 +16,7 @@ def f_selfshield_H2(prescription="Gnedin & Draine 2014"):
             x01 = x00 / (
                 sp.sqrt(1.0 + 3.0 * dv_turb * dv_turb / (v_thermal_rms * v_thermal_rms)) * sp.sqrt(2.0) * v_thermal_rms
             )
-            fH2 = n_("H_2") / (n_("H_2") + n_("H"))
+            fH2 = 2 * n_("H_2") / (2 * n_("H_2") + n_("H"))
             x_ss_1 = 1 + fH2 * x01
             x_ss_sqrt = sp.sqrt(1.0 + fH2 * x00)
             x_exp_fac = 0.00085

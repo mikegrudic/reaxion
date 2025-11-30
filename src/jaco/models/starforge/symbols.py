@@ -5,7 +5,7 @@ from ...symbols import x_, n_
 
 T = sp.Symbol("T")  # Gas temperature
 sqrt_T = sp.sqrt(T)
-log_T = sp.log(T, 10)
+log_T = sp.log(T, 10.0)
 n_Htot = n_("Htot")  # Total number density of H nuclei
 X_H = sp.Symbol("X")  # mass fraction of hydrogen
 T_dust = sp.Symbol("Td")  # Dust temperature
